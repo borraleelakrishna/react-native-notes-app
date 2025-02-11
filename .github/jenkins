@@ -1,0 +1,51 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Use a Node.js version compatible with your app
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Build Application
+        run: npm run build
+
+  deploy:
+    name: Deploy to AWS EC2
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}        # EC2 public IP or DNS (set in GitHub Secrets)
+          username: ${{ secrets.EC2_USER }}      # SSH username (e.g., ec2-user)
+          key: ${{ secrets.EC2_SSH_KEY }}        # Private SSH key (set in GitHub Secrets)
+          script: |
+            cd /home/ec2-user/react-native-notes-app
+            git pull origin main
+            npm install
+            npm run build
+            # Restart your application service (e.g., systemd, PM2, or Docker)
+            sudo systemctl restart react-native-notes-app.service
